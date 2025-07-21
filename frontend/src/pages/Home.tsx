@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useBlog } from '../contexts/BlogContext';
 
@@ -582,10 +582,56 @@ const trendingTopics = [
 
 const Home: React.FC = () => {
   const { posts, loading, error, fetchPosts } = useBlog();
+  const [email, setEmail] = useState('');
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscriptionMessage, setSubscriptionMessage] = useState('');
 
   useEffect(() => {
     fetchPosts();
   }, []);
+
+  const handleNewsletterSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) {
+      setSubscriptionMessage('Please enter a valid email address.');
+      return;
+    }
+
+    setIsSubscribing(true);
+    setSubscriptionMessage('');
+
+    try {
+      const response = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setSubscriptionMessage('Thank you for subscribing! You\'ll receive our latest updates.');
+        setEmail('');
+      } else {
+        const errorData = await response.json();
+        setSubscriptionMessage(errorData.message || 'Something went wrong. Please try again.');
+      }
+    } catch (error) {
+      setSubscriptionMessage('Network error. Please check your connection and try again.');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  // Function to get full image URL
+  const getImageUrl = (imagePath: string) => {
+    if (!imagePath) return '';
+    // If it's already a full URL (mock data), return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    // If it's a local path, use it directly (Vite will proxy it)
+    return imagePath;
+  };
 
   // Use mock data if no real posts are available
   const displayPosts = posts.length > 0 ? posts : mockPosts;
@@ -633,9 +679,17 @@ const Home: React.FC = () => {
                 <Link to={`/post/${featuredPost.slug}`}>
                   <div className="relative overflow-hidden rounded-2xl mb-6">
                     <img
-                      src={featuredPost.coverImage}
+                      src={getImageUrl(featuredPost.coverImage)}
                       alt={featuredPost.title}
                       className="w-full h-96 object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallbackSet) {
+                          console.log('Image failed to load:', getImageUrl(featuredPost.coverImage));
+                          target.src = 'https://via.placeholder.com/800x400?text=Image+Not+Available';
+                          target.dataset.fallbackSet = 'true';
+                        }
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                     <div className="absolute bottom-6 left-6 right-6">
@@ -699,9 +753,17 @@ const Home: React.FC = () => {
                     <Link to={`/post/${post.slug}`} className="flex space-x-4">
                       <div className="flex-shrink-0">
                         <img
-                          src={post.coverImage}
+                          src={getImageUrl(post.coverImage)}
                           alt={post.title}
                           className="w-20 h-20 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (!target.dataset.fallbackSet) {
+                              console.log('Thumbnail failed to load:', getImageUrl(post.coverImage));
+                              target.src = 'https://via.placeholder.com/80x80?text=No+Image';
+                              target.dataset.fallbackSet = 'true';
+                            }
+                          }}
                         />
                       </div>
                       
@@ -851,7 +913,7 @@ const Home: React.FC = () => {
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-4">
                         <img
-                          src={post.coverImage}
+                          src={getImageUrl(post.coverImage)}
                           alt={post.title}
                           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -907,7 +969,7 @@ const Home: React.FC = () => {
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-4">
                         <img
-                          src={post.coverImage}
+                          src={getImageUrl(post.coverImage)}
                           alt={post.title}
                           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -963,7 +1025,7 @@ const Home: React.FC = () => {
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-4">
                         <img
-                          src={post.coverImage}
+                          src={getImageUrl(post.coverImage)}
                           alt={post.title}
                           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -1047,7 +1109,7 @@ const Home: React.FC = () => {
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-3">
                         <img
-                          src={post.coverImage}
+                          src={getImageUrl(post.coverImage)}
                           alt={post.title}
                           className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -1117,7 +1179,7 @@ const Home: React.FC = () => {
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-4">
                         <img
-                          src={post.coverImage}
+                          src={getImageUrl(post.coverImage)}
                           alt={post.title}
                           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -1182,11 +1244,13 @@ const Home: React.FC = () => {
                       <article key={post._id || `popular-${index + 21}`} className="group">
                         <Link to={`/post/${post.slug}`} className="flex space-x-3">
                           <div className="flex-shrink-0">
+                          {post.coverImage ? (
                             <img
                               src={post.coverImage}
                               alt={post.title}
                               className="w-16 h-16 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
                             />
+                          ) : null}
                           </div>
                           
                           <div className="flex-1 min-w-0 space-y-1">
@@ -1205,11 +1269,13 @@ const Home: React.FC = () => {
                             
                             <div className="flex items-center space-x-2 text-xs text-gray-500">
                               <div className="flex items-center space-x-1">
-                                <img
-                                  src={post.author.profileImage}
-                                  alt={post.author.name}
-                                  className="w-4 h-4 rounded-full"
-                                />
+                                {post.author.profileImage ? (
+                                  <img
+                                    src={post.author.profileImage}
+                                    alt={post.author.name}
+                                    className="w-4 h-4 rounded-full"
+                                  />
+                                ) : null}
                                 <span>{post.author.name}</span>
                               </div>
                               <span>•</span>
@@ -1235,11 +1301,13 @@ const Home: React.FC = () => {
                   <article key={post._id || `blog-row2-${index + 22}`} className="group">
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-4">
-                        <img
-                          src={post.coverImage}
-                          alt={post.title}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
+                        {post.coverImage ? (
+                          <img
+                            src={post.coverImage}
+                            alt={post.title}
+                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : null}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
                         <div className="absolute bottom-3 left-3">
                           <span 
@@ -1262,11 +1330,13 @@ const Home: React.FC = () => {
                         
                         <div className="flex items-center space-x-3 text-xs text-gray-500">
                           <div className="flex items-center space-x-1">
-                            <img
-                              src={post.author.profileImage}
-                              alt={post.author.name}
-                              className="w-5 h-5 rounded-full"
-                            />
+                            {post.author.profileImage ? (
+                              <img
+                                src={post.author.profileImage}
+                                alt={post.author.name}
+                                className="w-5 h-5 rounded-full"
+                              />
+                            ) : null}
                             <span>{post.author.name}</span>
                           </div>
                           <span>•</span>
@@ -1292,11 +1362,13 @@ const Home: React.FC = () => {
                   <article key={post._id || `blog-row3-${index}`} className="group">
                     <Link to={`/post/${post.slug}`} className="block">
                       <div className="relative overflow-hidden rounded-lg mb-4">
-                        <img
-                          src={post.coverImage}
-                          alt={post.title}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
+                        {post.coverImage ? (
+                          <img
+                            src={post.coverImage}
+                            alt={post.title}
+                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : null}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
                         <div className="absolute bottom-3 left-3">
                           <span 
@@ -1319,11 +1391,13 @@ const Home: React.FC = () => {
                         
                         <div className="flex items-center space-x-3 text-xs text-gray-500">
                           <div className="flex items-center space-x-1">
-                            <img
-                              src={post.author.profileImage}
-                              alt={post.author.name}
-                              className="w-5 h-5 rounded-full"
-                            />
+                            {post.author.profileImage ? (
+                              <img
+                                src={post.author.profileImage}
+                                alt={post.author.name}
+                                className="w-5 h-5 rounded-full"
+                              />
+                            ) : null}
                             <span>{post.author.name}</span>
                           </div>
                           <span>•</span>
@@ -1466,16 +1540,34 @@ const Home: React.FC = () => {
             <p className="text-primary-100 mb-6 max-w-2xl mx-auto">
               Subscribe to our newsletter and get the latest articles, tutorials, and insights delivered to your inbox.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white"
-              />
-              <button className="px-6 py-3 bg-white text-primary-600 font-semibold rounded-lg hover:bg-gray-50 transition-colors">
-                Subscribe
-              </button>
-            </div>
+            <form onSubmit={handleNewsletterSubscribe} className="max-w-md mx-auto">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="flex-1 px-4 py-3 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white"
+                  disabled={isSubscribing}
+                />
+                <button 
+                  type="submit"
+                  disabled={isSubscribing}
+                  className="px-6 py-3 bg-white text-primary-600 font-semibold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubscribing ? 'Subscribing...' : 'Subscribe'}
+                </button>
+              </div>
+              {subscriptionMessage && (
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                  subscriptionMessage.includes('Thank you') 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {subscriptionMessage}
+                </div>
+              )}
+            </form>
           </div>
         </div>
       </div>

@@ -26,15 +26,21 @@ const Navbar: React.FC = () => {
             </Link>
             <Link 
               to="/category/react" 
-              className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
+              className="text-gray-600 hover:text-gray-900 transition-colors font-medium border-b-2 border-transparent hover:border-primary-500"
             >
               React JS
             </Link>
             <Link 
               to="/category/nextjs" 
-              className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
+              className="text-gray-600 hover:text-gray-900 transition-colors font-medium border-b-2 border-transparent hover:border-primary-500"
             >
               Next JS
+            </Link>
+            <Link 
+              to="/category/python" 
+              className="text-gray-600 hover:text-gray-900 transition-colors font-medium border-b-2 border-transparent hover:border-primary-500"
+            >
+              Python
             </Link>
           </div>
 
@@ -49,24 +55,46 @@ const Navbar: React.FC = () => {
 
             {user ? (
               <div className="flex items-center space-x-3">
-                <span className="text-gray-700 text-sm">Hello, {user.name}</span>
-                {user.role === 'admin' && (
+                <span className="text-gray-700 text-sm hover:text-gray-900 transition-colors border-b-2 border-transparent hover:border-primary-500 cursor-pointer">Hello, {user.name}</span>
+                {user.role === 'super_admin' ? (
+                  <>
+                    <Link 
+                      to="/user/panel" 
+                      className="px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors border-b-2 border-transparent hover:border-primary-500"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link 
+                      to="/admin" 
+                      className="px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full hover:bg-primary-100 transition-colors border-b-2 border-transparent hover:border-primary-500"
+                    >
+                      Admin
+                    </Link>
+                  </>
+                ) : user.role === 'admin' ? (
                   <Link 
                     to="/admin" 
-                    className="px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full hover:bg-primary-100 transition-colors"
+                    className="px-3 py-1 text-sm font-medium text-primary-600 bg-primary-50 rounded-full hover:bg-primary-100 transition-colors border-b-2 border-transparent hover:border-primary-500"
                   >
                     Admin
+                  </Link>
+                ) : (
+                  <Link 
+                    to="/user/panel" 
+                    className="px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors border-b-2 border-transparent hover:border-primary-500"
+                  >
+                    Dashboard
                   </Link>
                 )}
                 <Link 
                   to="/profile" 
-                  className="px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                  className="px-3 py-1 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors border-b-2 border-transparent hover:border-primary-500"
                 >
                   Profile
                 </Link>
                 <button 
                   onClick={logout}
-                  className="px-3 py-1 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                  className="px-3 py-1 text-sm font-medium text-red-600 hover:text-red-700 transition-colors border-b-2 border-transparent hover:border-primary-500"
                 >
                   Logout
                 </button>

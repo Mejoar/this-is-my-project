@@ -25,13 +25,48 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// List of public endpoints that don't require authentication
+const publicEndpoints = [
+  '/posts',
+  '/posts/recent'
+];
+
+// Check if an endpoint is public (doesn't require auth)
+const isPublicEndpoint = (url: string): boolean => {
+  // Handle single post endpoint (/posts/:id)
+  if (url.match(/^\/posts\/[a-zA-Z0-9]+$/)) {
+    return true;
+  }
+  
+  // Handle comments endpoint (/comments/:postId)
+  if (url.match(/^\/comments\/[a-zA-Z0-9]+$/)) {
+    return true;
+  }
+  
+  // Check exact matches for other public endpoints
+  return publicEndpoints.some(endpoint => url === endpoint || url.startsWith(endpoint + '?'));
+};
+
+// Request interceptor to add auth token only for protected endpoints
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const url = config.url || '';
+    
+    // Only add auth header for protected endpoints
+    if (!isPublicEndpoint(url)) {
+      // In development, use the dev token if no token exists in localStorage
+      let token = localStorage.getItem('token');
+      
+      if (!token && import.meta.env.DEV && import.meta.env.VITE_DEV_TOKEN) {
+        token = import.meta.env.VITE_DEV_TOKEN;
+        console.log('Using development token:', token);
+      }
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+    
     return config;
   },
   (error) => {
@@ -65,9 +100,6 @@ export const authAPI = {
     formData.append('name', userData.name);
     formData.append('email', userData.email);
     formData.append('password', userData.password);
-    if (userData.adminInviteToken) {
-      formData.append('adminInviteToken', userData.adminInviteToken);
-    }
     if (userData.profileImage) {
       formData.append('profileImage', userData.profileImage);
     }
@@ -118,7 +150,16 @@ export const postsAPI = {
     formData.append('title', postData.title);
     formData.append('content', postData.content);
     if (postData.excerpt) formData.append('excerpt', postData.excerpt);
-    formData.append('tags', JSON.stringify(postData.tags));
+    
+    // Handle tags properly - send as a comma-separated string
+    if (Array.isArray(postData.tags)) {
+      formData.append('tags', postData.tags.join(','));
+    } else if (typeof postData.tags === 'string') {
+      formData.append('tags', postData.tags);
+    } else {
+      formData.append('tags', '');
+    }
+    
     formData.append('status', postData.status);
     if (postData.seoTitle) formData.append('seoTitle', postData.seoTitle);
     if (postData.seoDescription) formData.append('seoDescription', postData.seoDescription);
@@ -131,12 +172,19 @@ export const postsAPI = {
     return response.data;
   },
 
-  updatePost: async (id: string, postData: PostFormData): Promise<{ post: Post }> => {
+  updatePost: async (id: string, postData: any): Promise<{ post: Post }> => {
     const formData = new FormData();
     formData.append('title', postData.title);
     formData.append('content', postData.content);
     if (postData.excerpt) formData.append('excerpt', postData.excerpt);
-    formData.append('tags', JSON.stringify(postData.tags));
+    
+    // Handle tags properly - send as a string if it's an array
+    if (Array.isArray(postData.tags)) {
+      formData.append('tags', postData.tags.join(','));
+    } else {
+      formData.append('tags', postData.tags || '');
+    }
+    
     formData.append('status', postData.status);
     if (postData.seoTitle) formData.append('seoTitle', postData.seoTitle);
     if (postData.seoDescription) formData.append('seoDescription', postData.seoDescription);
@@ -166,6 +214,21 @@ export const postsAPI = {
 
   generatePost: async (request: AIGenerationRequest): Promise<AIGenerationResponse> => {
     const response = await api.post('/posts/generate-ai', request);
+    return response.data;
+  },
+
+  generateContent: async (prompt: string) => {
+    const response = await api.post('/posts/generate-content', { prompt });
+    return response.data;
+  },
+
+  improveTitle: async (title: string) => {
+    const response = await api.post('/posts/improve-title', { title });
+    return response.data;
+  },
+
+  generateExcerpt: async (content: string) => {
+    const response = await api.post('/posts/generate-excerpt', { content });
     return response.data;
   },
 };
@@ -250,15 +313,40 @@ export const adminAPI = {
     return response.data;
   },
 
+  getSystemMetrics: async () => {
+    const response = await api.get('/admin/system-metrics');
+    return response.data;
+  },
+
+  toggleUserStatus: async (userId: string, isActive: boolean) => {
+    const response = await api.put(`/admin/users/${userId}/status`, { isActive });
+    return response.data;
+  },
+
+  deleteUser: async (userId: string) => {
+    const response = await api.delete(`/admin/users/${userId}`);
+    return response.data;
+  },
+
+  updateUserRole: async (userId: string, role: 'user' | 'admin' | 'moderator') => {
+    const response = await api.put(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  bulkUserAction: async (userIds: string[], action: 'activate' | 'deactivate' | 'delete') => {
+    const response = await api.post('/admin/users/bulk-action', { userIds, action });
+    return response.data;
+  },
+
+  createUser: async (newUser: { name: string; email: string; role: 'user' | 'admin' | 'moderator'; password: string; }) => {
+    const response = await api.post('/admin/users', newUser);
+    return response.data;
+  },
+
   getAllUsers: async (page = 1, limit = 20, role = 'all') => {
     const response = await api.get('/admin/users', {
       params: { page, limit, role }
     });
-    return response.data;
-  },
-
-  updateUserStatus: async (userId: string, isActive: boolean) => {
-    const response = await api.put(`/admin/users/${userId}/status`, { isActive });
     return response.data;
   },
 
@@ -271,6 +359,11 @@ export const adminAPI = {
     const response = await api.get('/admin/analytics', {
       params: { period }
     });
+    return response.data;
+  },
+
+  getPost: async (id: string): Promise<{ post: Post }> => {
+    const response = await api.get(`/admin/posts/${id}`);
     return response.data;
   },
 };

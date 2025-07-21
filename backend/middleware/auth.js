@@ -33,14 +33,30 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Check if user is admin
+// Check if user is admin or super admin
 const requireAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ message: 'Authentication required' });
   }
 
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
     return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  next();
+};
+
+// Check if user is super admin
+const requireSuperAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ 
+      message: 'Super Admin access required',
+      currentRole: req.user.role 
+    });
   }
 
   next();
@@ -82,6 +98,7 @@ const generateToken = (userId) => {
 module.exports = {
   authenticateToken,
   requireAdmin,
+  requireSuperAdmin,
   optionalAuth,
   generateToken
 };

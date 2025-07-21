@@ -2,7 +2,7 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: 'admin' | 'member';
+  role: 'admin' | 'member' | 'super_admin';
   profileImage?: string;
   isActive: boolean;
   createdAt: string;
@@ -141,7 +141,6 @@ export interface SignupFormData {
   name: string;
   email: string;
   password: string;
-  adminInviteToken?: string;
   profileImage?: File;
 }
 

@@ -82,13 +82,32 @@ postSchema.index({ slug: 1 });
 postSchema.index({ title: 'text', content: 'text', excerpt: 'text' });
 
 // Generate slug from title
-postSchema.pre('save', function(next) {
+postSchema.pre('save', async function(next) {
   if (this.isModified('title')) {
-    this.slug = this.title
+    const baseSlug = this.title
       .toLowerCase()
       .replace(/[^a-zA-Z0-9 ]/g, '')
       .replace(/\s+/g, '-')
       .trim('-');
+    
+    // Ensure slug uniqueness
+    let slug = baseSlug;
+    let counter = 0;
+    
+    while (true) {
+      const existingPost = await this.constructor.findOne({ 
+        slug: slug, 
+        _id: { $ne: this._id } // Exclude current post when updating
+      });
+      
+      if (!existingPost) {
+        this.slug = slug;
+        break;
+      }
+      
+      counter++;
+      slug = `${baseSlug}-${counter}`;
+    }
   }
   
   // Generate excerpt if not provided

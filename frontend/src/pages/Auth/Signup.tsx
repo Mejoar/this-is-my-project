@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
 import { SignupFormData } from '../../types';
 
 const Signup: React.FC = () => {
-  const { signup, loading } = useAuth();
+  const { signup, loading, user } = useAuth();
   const navigate = useNavigate();
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -36,7 +36,9 @@ const Signup: React.FC = () => {
         profileImage: profileImage || undefined
       };
       await signup(formData);
-      navigate('/');
+      
+      // Redirect to user panel after successful signup
+      navigate('/user/panel');
     } catch (error) {
       // Error is handled by the context
     }
@@ -173,21 +175,6 @@ const Signup: React.FC = () => {
               )}
             </div>
 
-            {/* Admin Invite Token */}
-            <div>
-              <label htmlFor="adminInviteToken" className="sr-only">
-                Admin Invite Token (Optional)
-              </label>
-              <input
-                {...register('adminInviteToken')}
-                type="text"
-                placeholder="Admin Invite Token (Optional)"
-                className="form-input"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Enter the admin invite token to register as an admin
-              </p>
-            </div>
           </div>
 
           <div>

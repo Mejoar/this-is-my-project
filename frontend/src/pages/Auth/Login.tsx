@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginFormData } from '../../types';
 
 const Login: React.FC = () => {
-  const { login, loading } = useAuth();
+  const { login, loading, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,13 +15,31 @@ const Login: React.FC = () => {
     formState: { errors }
   } = useForm<LoginFormData>();
 
+  // Redirect after successful login
+  useEffect(() => {
+    if (user && !loading) {
+      const from = location.state?.from?.pathname;
+      
+      if (from) {
+        // If they were trying to access a specific page, redirect there
+        navigate(from, { replace: true });
+      } else {
+        // Redirect based on user role
+        if (user.role === 'super_admin') {
+          navigate('/super-admin', { replace: true });
+        } else if (user.role === 'admin') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/user/panel', { replace: true });
+        }
+      }
+    }
+  }, [user, loading, navigate, location.state?.from?.pathname]);
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data.email, data.password);
-      
-      // Redirect to the page they tried to visit or dashboard
-      const from = location.state?.from?.pathname || '/';
-      navigate(from, { replace: true });
+      // Redirection will be handled by useEffect above
     } catch (error) {
       // Error is handled by the context
     }
@@ -107,13 +125,6 @@ const Login: React.FC = () => {
             </button>
           </div>
 
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              <strong>Demo Credentials:</strong><br />
-              Admin: Use admin invite token "123456" when signing up<br />
-              Or create a regular account without the token
-            </p>
-          </div>
         </form>
       </div>
     </div>

@@ -38,15 +38,33 @@ router.get('/:postId',
       const limit = parseInt(req.query.limit) || 20;
       const skip = (page - 1) * limit;
 
-      // Check if post exists and is published
-      const post = await Post.findById(postId);
+      // Try to find post by ID first, then by slug
+      let post;
+      try {
+        post = await Post.findById(postId);
+      } catch (error) {
+        // If ID is invalid, try to find by slug
+        if (error.name === 'CastError') {
+          post = await Post.findOne({ slug: postId });
+        } else {
+          throw error;
+        }
+      }
+      
+      if (!post) {
+        post = await Post.findOne({ slug: postId });
+      }
+      
       if (!post || post.status !== 'published') {
         return res.status(404).json({ message: 'Post not found' });
       }
+      
+      // Use the actual post ID for finding comments
+      const actualPostId = post._id;
 
       // Get root-level comments (not replies)
       const comments = await Comment.find({ 
-        post: postId, 
+        post: actualPostId, 
         parentComment: null,
         isApproved: true 
       })
@@ -66,7 +84,7 @@ router.get('/:postId',
 
       // Get total count for pagination
       const totalComments = await Comment.countDocuments({ 
-        post: postId, 
+        post: actualPostId, 
         parentComment: null,
         isApproved: true 
       });

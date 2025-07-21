@@ -10,7 +10,10 @@ const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
 const commentRoutes = require('./routes/comments');
 const adminRoutes = require('./routes/admin');
+const superAdminRoutes = require('./routes/superadmin');
+const dashboardRoutes = require('./routes/dashboard');
 const uploadRoutes = require('./routes/upload');
+const newsletterRoutes = require('./routes/newsletter');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -47,7 +50,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

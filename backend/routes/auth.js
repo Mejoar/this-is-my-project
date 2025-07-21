@@ -18,7 +18,11 @@ const signupValidation = [
     .withMessage('Please provide a valid email'),
   body('password')
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
+    .withMessage('Password must be at least 6 characters long'),
+  body('role')
+    .optional()
+    .isIn(['member', 'admin', 'super_admin'])
+    .withMessage('Role must be one of: member, admin, super_admin')
 ];
 
 const loginValidation = [
@@ -49,7 +53,7 @@ router.post('/signup',
         });
       }
 
-      const { name, email, password, adminInviteToken } = req.body;
+      const { name, email, password, role } = req.body;
 
       // Check if user already exists
       const existingUser = await User.findOne({ email });
@@ -59,10 +63,24 @@ router.post('/signup',
         });
       }
 
-      // Determine user role
-      let role = 'member';
-      if (adminInviteToken && adminInviteToken === process.env.ADMIN_INVITE_TOKEN) {
-        role = 'admin';
+      // Role assignment logic with security checks
+      let assignedRole = 'admin'; // Default role
+      
+      if (role) {
+        // Only allow super_admin creation if ALLOW_SUPER_ADMIN_SIGNUP env var is set to 'true'
+        // or if there's a special signup key provided
+        if (role === 'super_admin') {
+          const allowSuperAdminSignup = process.env.ALLOW_SUPER_ADMIN_SIGNUP === 'true';
+          const superAdminKey = req.body.superAdminKey;
+          const validSuperAdminKey = process.env.SUPER_ADMIN_SIGNUP_KEY;
+          
+          if (!allowSuperAdminSignup && (!superAdminKey || superAdminKey !== validSuperAdminKey)) {
+            return res.status(403).json({
+              message: 'Super admin creation is not authorized'
+            });
+          }
+        }
+        assignedRole = role;
       }
 
       // Handle profile image
@@ -76,8 +94,8 @@ router.post('/signup',
         name,
         email,
         password,
-        role,
-        profileImage
+        profileImage,
+        role: assignedRole
       });
 
       await user.save();

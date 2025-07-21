@@ -157,11 +157,27 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const { id } = req.params;
     
     // Try to find by ID first, then by slug
-    let post = await Post.findById(id)
-      .populate('author', 'name profileImage email')
-      .populate('tags', 'name slug color')
-      .lean();
+    let post;
+    
+    try {
+      // Try to find by ObjectId first
+      post = await Post.findById(id)
+        .populate('author', 'name profileImage email')
+        .populate('tags', 'name slug color')
+        .lean();
+    } catch (error) {
+      // If ID is invalid (not a valid ObjectId), try by slug
+      if (error.name === 'CastError') {
+        post = await Post.findOne({ slug: id })
+          .populate('author', 'name profileImage email')
+          .populate('tags', 'name slug color')
+          .lean();
+      } else {
+        throw error;
+      }
+    }
 
+    // If not found by ID, try by slug
     if (!post) {
       post = await Post.findOne({ slug: id })
         .populate('author', 'name profileImage email')
@@ -174,9 +190,9 @@ router.get('/:id', optionalAuth, async (req, res) => {
     }
 
     // Check if post is published or user is admin
-    if (post.status !== 'published' && (!req.user || req.user.role !== 'admin')) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
+  if (post.status !== 'published' && (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin'))) {
+    return res.status(404).json({ message: 'Post not found' });
+  }
 
     // Increment view count if post is published
     if (post.status === 'published') {
@@ -199,10 +215,9 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
 // @route   POST /api/posts
 // @desc    Create new post
-// @access  Private (Admin only)
+// @access  Private (Any authenticated user)
 router.post('/',
   authenticateToken,
-  requireAdmin,
   upload.single('coverImage'),
   handleUploadError,
   postValidation,
@@ -272,9 +287,11 @@ router.post('/',
       });
     } catch (error) {
       console.error('Create post error:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({
         message: 'Failed to create post',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }
@@ -282,10 +299,9 @@ router.post('/',
 
 // @route   PUT /api/posts/:id
 // @desc    Update post
-// @access  Private (Admin only)
+// @access  Private (Any authenticated user)
 router.put('/:id',
   authenticateToken,
-  requireAdmin,
   upload.single('coverImage'),
   handleUploadError,
   postValidation,
@@ -305,6 +321,11 @@ router.put('/:id',
       const post = await Post.findById(id);
       if (!post) {
         return res.status(404).json({ message: 'Post not found' });
+      }
+
+      // Check if user is the author of the post
+      if (post.author.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'You can only edit your own posts' });
       }
 
       // Handle cover image
@@ -380,14 +401,19 @@ router.put('/:id',
 
 // @route   DELETE /api/posts/:id
 // @desc    Delete post
-// @access  Private (Admin only)
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+// @access  Private (Any authenticated user)
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
     const post = await Post.findById(id);
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check if user is the author of the post
+    if (post.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only delete your own posts' });
     }
 
     // Update tag post counts
@@ -479,10 +505,9 @@ router.post('/:id/summarize', optionalAuth, async (req, res) => {
 
 // @route   POST /api/posts/generate-ai
 // @desc    Generate AI blog post
-// @access  Private (Admin only)
+// @access  Private (Any authenticated user)
 router.post('/generate-ai',
   authenticateToken,
-  requireAdmin,
   [
     body('title').trim().isLength({ min: 3, max: 200 }).withMessage('Title is required and must be between 3-200 characters'),
     body('tone').optional().trim(),
