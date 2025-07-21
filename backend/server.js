@@ -18,6 +18,9 @@ const newsletterRoutes = require('./routes/newsletter');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy (required for Railway and other hosting platforms)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
@@ -33,8 +36,22 @@ app.use(limiter);
 app.use(morgan('combined'));
 
 // CORS configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:50766',
+  'https://frontend-dq8ydjxgg-chris-projects-7330068d.vercel.app',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Allow non-browser requests
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, origin); // Return the actual origin instead of true
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
