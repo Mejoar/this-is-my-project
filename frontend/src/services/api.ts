@@ -16,9 +16,17 @@ import {
   SearchParams
 } from '../types';
 
+// Get base URL from environment variable or fallback to proxy
+const getBaseURL = () => {
+  if (import.meta.env.PROD && import.meta.env.VITE_API_URL) {
+    return `${import.meta.env.VITE_API_URL}/api`;
+  }
+  return '/api'; // Will be proxied to http://localhost:5000/api by Vite in dev
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: '/api', // Will be proxied to http://localhost:5000/api by Vite
+  baseURL: getBaseURL(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -78,11 +86,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Only auto-logout for auth-specific endpoints, not for all 401s
     if (error.response?.status === 401) {
-      // Clear token and redirect to login if unauthorized
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      
+      // Only auto-logout for auth endpoints (like /auth/me) or if it's a token verification failure
+      // Let other components handle 401s for their specific use cases
+      if (url.includes('/auth/me') || url.includes('/auth/profile')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      // For other endpoints, just pass the error through to be handled by the component
     }
     return Promise.reject(error);
   }

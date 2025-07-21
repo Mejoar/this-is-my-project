@@ -152,9 +152,7 @@ const AdminCreatePost: React.FC = () => {
       
       if (error.response?.status === 401) {
         errorMessage = 'You are not authorized. Please login again.';
-        // Clear invalid tokens
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // Don't clear tokens here - let the auth context handle it
         navigate('/login');
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -563,9 +561,8 @@ const AdminCreatePost: React.FC = () => {
               <button
                 type="submit"
                 onClick={() => {
-                  // Set status to published before submit
-                  const form = document.getElementById('status') as HTMLSelectElement;
-                  if (form) form.value = 'published';
+                  // Set status to published using React Hook Form's setValue
+                  setValue('status', 'published');
                 }}
                 className="btn btn-primary"
                 disabled={loading}
