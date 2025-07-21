@@ -524,8 +524,10 @@ router.post('/generate-ai',
       }
 
       if (!aiService.isAvailable()) {
+        console.error('AI service not available - GEMINI_API_KEY missing or invalid');
         return res.status(503).json({ 
-          message: 'AI service is not available at the moment' 
+          message: 'AI service is not available. Please check server configuration.',
+          error: 'GEMINI_API_KEY not configured'
         });
       }
 
@@ -546,12 +548,172 @@ router.post('/generate-ai',
       });
     } catch (error) {
       console.error('Generate AI post error:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Request body:', req.body);
       res.status(500).json({
         message: 'Failed to generate blog post',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+);
+
+// @route   POST /api/posts/generate-content
+// @desc    Generate AI content for existing post
+// @access  Private (Any authenticated user)
+router.post('/generate-content',
+  authenticateToken,
+  [
+    body('prompt').trim().isLength({ min: 3 }).withMessage('Prompt is required')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      if (!aiService.isAvailable()) {
+        return res.status(503).json({ 
+          message: 'AI service is not available at the moment' 
+        });
+      }
+
+      const { prompt } = req.body;
+
+      // Use the generateBlogPost method with the prompt as title for content generation
+      const content = await aiService.generateBlogPost(prompt, 'informative', []);
+
+      res.json({
+        message: 'Content generated successfully',
+        data: { content }
+      });
+    } catch (error) {
+      console.error('Generate content error:', error);
+      res.status(500).json({
+        message: 'Failed to generate content',
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
   }
 );
+
+// @route   POST /api/posts/improve-title
+// @desc    Generate improved title variations
+// @access  Private (Any authenticated user)
+router.post('/improve-title',
+  authenticateToken,
+  [
+    body('title').trim().isLength({ min: 3 }).withMessage('Title is required')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      if (!aiService.isAvailable()) {
+        return res.status(503).json({ 
+          message: 'AI service is not available at the moment' 
+        });
+      }
+
+      const { title } = req.body;
+
+      const improvedTitles = await aiService.generateSEOTitles(title, 3);
+      // Return the first improved title as the main suggestion
+      const improvedTitle = improvedTitles && improvedTitles.length > 0 ? improvedTitles[0] : title;
+
+      res.json({
+        message: 'Title improved successfully',
+        data: { title: improvedTitle, alternatives: improvedTitles }
+      });
+    } catch (error) {
+      console.error('Improve title error:', error);
+      res.status(500).json({
+        message: 'Failed to improve title',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+// @route   POST /api/posts/generate-excerpt
+// @desc    Generate excerpt from content
+// @access  Private (Any authenticated user)
+router.post('/generate-excerpt',
+  authenticateToken,
+  [
+    body('content').trim().isLength({ min: 10 }).withMessage('Content is required')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      if (!aiService.isAvailable()) {
+        return res.status(503).json({ 
+          message: 'AI service is not available at the moment' 
+        });
+      }
+
+      const { content } = req.body;
+
+      const excerpt = await aiService.summarizeBlogPost(content, 200);
+
+      res.json({
+        message: 'Excerpt generated successfully',
+        data: { excerpt }
+      });
+    } catch (error) {
+      console.error('Generate excerpt error:', error);
+      res.status(500).json({
+        message: 'Failed to generate excerpt',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+// @route   GET /api/posts/ai-status
+// @desc    Check AI service status
+// @access  Public
+router.get('/ai-status', async (req, res) => {
+  try {
+    const isAvailable = aiService.isAvailable();
+    
+    res.json({
+      aiService: {
+        available: isAvailable,
+        status: isAvailable ? 'ready' : 'unavailable',
+        message: isAvailable ? 'AI service is ready' : 'AI service is not configured'
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        hasGeminiKey: !!process.env.GEMINI_API_KEY,
+        geminiKeyLength: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0
+      }
+    });
+  } catch (error) {
+    console.error('AI status check error:', error);
+    res.status(500).json({
+      message: 'Failed to check AI service status',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;

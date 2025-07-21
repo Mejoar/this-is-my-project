@@ -3,11 +3,19 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 class AIService {
   constructor() {
     if (!process.env.GEMINI_API_KEY) {
-      console.warn('GEMINI_API_KEY not found in environment variables');
+      console.error('❌ GEMINI_API_KEY not found in environment variables');
+      console.log('Available environment variables:', Object.keys(process.env).filter(key => key.includes('GEMINI')));
       this.genAI = null;
     } else {
-      this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      try {
+        console.log('✅ GEMINI_API_KEY found, initializing AI service...');
+        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        console.log('✅ AI service initialized successfully');
+      } catch (error) {
+        console.error('❌ Failed to initialize AI service:', error.message);
+        this.genAI = null;
+      }
     }
   }
 
